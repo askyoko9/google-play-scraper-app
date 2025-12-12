@@ -1,14 +1,11 @@
 {
-  "builds": [
-    { 
-      "src": "server.py", 
-      "use": "@vercel/python" 
+  "functions": {
+    "api/index.py": {
+      "runtime": "python3.9"
     }
-  ],
-  "routes": [
-    { 
-      "src": "/(.*)", 
-      "dest": "/server.py" 
-    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/(.*)", "destination": "/public/index.html" }
   ]
 }
