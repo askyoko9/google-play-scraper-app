@@ -23,6 +23,7 @@
         .error { background-color: #fdd; color: #d00; border: 1px solid #f99; }
         .success { background-color: #ddf; color: #00d; border: 1px solid #99f; }
         .hidden { display: none; }
+        .loading { color: #666; font-style: italic; }
     </style>
 </head>
 <body>
@@ -42,12 +43,14 @@
         </button>
         
         <div id="message" class="hidden"></div>
+        <div id="loading" class="hidden loading">⏳ Обработка запроса...</div>
     </div>
 
     <script>
         const scrapeButton = document.getElementById('scrapeButton');
         const urlInput = document.getElementById('appUrl');
         const messageDiv = document.getElementById('message');
+        const loadingDiv = document.getElementById('loading');
 
         function showMessage(text, isError) {
             messageDiv.textContent = text;
@@ -55,77 +58,107 @@
             messageDiv.classList.remove('hidden');
         }
 
-async function startScrape() {
-    const appUrl = urlInput.value.trim();
+        async function startScrape() {
+            const appUrl = urlInput.value.trim();
 
-    if (!appUrl) {
-        showMessage("Пожалуйста, введите ссылку на приложение.", true);
-        return;
-    }
-
-    // Блокируем кнопку и показываем сообщение о загрузке
-    scrapeButton.disabled = true;
-    scrapeButton.textContent = "Сбор данных... Подождите ⏳";
-    messageDiv.classList.add('hidden');
-
-    try {
-        // Отправляем запрос на нашу бессерверную функцию Vercel (api/index.py)
-        const response = await fetch('/api/index', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url: appUrl })
-        });
-
-        if (response.ok) {
-            // Проверяем тип контента
-            const contentType = response.headers.get('content-type');
-            
-            if (contentType && contentType.includes('text/csv')) {
-                // Если это CSV файл
-                const disposition = response.headers.get('Content-Disposition');
-                const filenameMatch = disposition && disposition.match(/filename="(.+)"/);
-                const filename = filenameMatch ? filenameMatch[1] : 'reviews.csv';
-
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                window.URL.revokeObjectURL(url);
-
-                showMessage(`✅ Данные успешно собраны и скачаны как ${filename}!`, false);
-            } else {
-                // Если это JSON (ошибка или что-то еще)
-                const errorData = await response.json();
-                showMessage(`❌ Ошибка: ${errorData.error || 'Неизвестная ошибка'}`, true);
+            if (!appUrl) {
+                showMessage("Пожалуйста, введите ссылку на приложение.", true);
+                return;
             }
 
-        } else {
-            // Пытаемся получить JSON с ошибкой
+            // Блокируем кнопку и показываем сообщение о загрузке
+            scrapeButton.disabled = true;
+            scrapeButton.textContent = "Сбор данных...";
+            loadingDiv.classList.remove('hidden');
+            messageDiv.classList.add('hidden');
+
             try {
-                const errorData = await response.json();
-                showMessage(`❌ Ошибка (${response.status}): ${errorData.error || 'Неизвестная ошибка сервера.'}`, true);
-            } catch {
-                // Если не JSON, показываем текст ошибки
-                const errorText = await response.text();
-                showMessage(`❌ Ошибка (${response.status}): ${errorText.substring(0, 100)}...`, true);
+                // Отправляем запрос на нашу бессерверную функцию Vercel
+                const response = await fetch('/api', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url: appUrl })
+                });
+
+                // Получаем тип контента
+                const contentType = response.headers.get('content-type') || '';
+
+                if (response.ok) {
+                    if (contentType.includes('text/csv')) {
+                        // Если это CSV файл - скачиваем
+                        const disposition = response.headers.get('Content-Disposition');
+                        let filename = 'reviews.csv';
+                        
+                        if (disposition) {
+                            const matches = disposition.match(/filename="(.+)"/);
+                            if (matches && matches[1]) {
+                                filename = matches[1];
+                            }
+                        }
+
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(url);
+
+                        showMessage(`✅ Данные успешно собраны и скачаны как ${filename}!`, false);
+                    } else if (contentType.includes('application/json')) {
+                        // Если это JSON - возможно информационный ответ
+                        const data = await response.json();
+                        if (data.error) {
+                            showMessage(`❌ Ошибка: ${data.error}`, true);
+                        } else {
+                            showMessage(`✅ ${data.message || 'Успешно!'}`, false);
+                        }
+                    } else {
+                        // Другой тип контента
+                        const text = await response.text();
+                        showMessage(`✅ Получен ответ: ${text.substring(0, 50)}...`, false);
+                    }
+                } else {
+                    // Ошибка HTTP (статус не 200-299)
+                    if (contentType.includes('application/json')) {
+                        try {
+                            const errorData = await response.json();
+                            showMessage(`❌ Ошибка ${response.status}: ${errorData.error || 'Неизвестная ошибка'}`, true);
+                        } catch (e) {
+                            showMessage(`❌ Ошибка ${response.status}: Не удалось разобрать ответ`, true);
+                        }
+                    } else {
+                        try {
+                            const errorText = await response.text();
+                            showMessage(`❌ Ошибка ${response.status}: ${errorText.substring(0, 100)}`, true);
+                        } catch (e) {
+                            showMessage(`❌ Ошибка ${response.status}: ${response.statusText}`, true);
+                        }
+                    }
+                }
+
+            } catch (error) {
+                console.error('Ошибка запроса:', error);
+                showMessage(`❌ Критическая ошибка сети: ${error.message}`, true);
+            } finally {
+                // Восстанавливаем кнопку
+                scrapeButton.disabled = false;
+                scrapeButton.textContent = "Запустить сбор и скачать CSV";
+                loadingDiv.classList.add('hidden');
             }
         }
 
-    } catch (error) {
-        showMessage(`❌ Критическая ошибка сети/AJAX: ${error.message}`, true);
-    } finally {
-        // Восстанавливаем кнопку
-        scrapeButton.disabled = false;
-        scrapeButton.textContent = "Запустить сбор и скачать CSV";
-    }
-}
+        // Добавляем обработчик клавиши Enter
+        urlInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                startScrape();
+            }
+        });
     </script>
 </body>
 </html>
