@@ -119,21 +119,55 @@
         <div id="message" class="hidden"></div>
         <div id="loading" class="hidden loading">⏳ Обработка запроса...</div>
     </div>
-    <button id="testButton" onclick="testAPI()" style="background-color: #34A853; margin-top: 10px;">
-        Тест API
-    </button>
+<!--  -->
+<div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 20px;">
+    <h3>Тестирование API</h3>
+    <button onclick="testGet()" style="background-color: #34A853;">Тест GET</button>
+    <button onclick="testPost()" style="background-color: #FBBC05;">Тест POST</button>
+    <button onclick="testRaw()" style="background-color: #EA4335;">Тест RAW</button>
+</div>
 
-    <script>
-        async function testAPI() {
-            try {
-                const response = await fetch('/api/index');
-                const data = await response.json();
-                alert(`Тест API: ${data.status}\n${data.message}`);
-            } catch (error) {
-                alert(`Ошибка теста API: ${error.message}`);
-            }
-        }
-    </script>
+<script>
+async function testGet() {
+    try {
+        const response = await fetch('/api/');
+        const data = await response.json();
+        showMessage(`✅ GET тест: ${data.message}`, false);
+        console.log('GET ответ:', data);
+    } catch (error) {
+        showMessage(`❌ GET ошибка: ${error.message}`, true);
+    }
+}
+
+async function testPost() {
+    try {
+        const response = await fetch('/api/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ test: "data", timestamp: new Date().toISOString() })
+        });
+        const data = await response.json();
+        showMessage(`✅ POST тест: ${data.message}`, false);
+        console.log('POST ответ:', data);
+    } catch (error) {
+        showMessage(`❌ POST ошибка: ${error.message}`, true);
+    }
+}
+
+async function testRaw() {
+    try {
+        const response = await fetch('/api/');
+        const text = await response.text();
+        console.log('RAW ответ:', text.substring(0, 200));
+        showMessage(`📄 RAW ответ (первые 200 символов): ${text.substring(0, 200)}`, false);
+    } catch (error) {
+        showMessage(`❌ RAW ошибка: ${error.message}`, true);
+    }
+}
+</script>
+<!--  -->
     <script>
         const scrapeButton = document.getElementById('scrapeButton');
         const urlInput = document.getElementById('appUrl');
