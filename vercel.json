@@ -1,33 +1,18 @@
 {
-  "version": 2,
   "functions": {
     "api/*.py": {
       "maxDuration": 60,
       "memory": 1024
     }
   },
-  "builds": [
+  "rewrites": [
     {
-      "src": "api/index.py",
-      "use": "@vercel/python"
+      "source": "/",
+      "destination": "/index.html"
     },
     {
-      "src": "index.html",
-      "use": "@vercel/static"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/index.py"
-    },
-    {
-      "src": "/",
-      "dest": "/index.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/api/(.*)",
+      "destination": "/api/index.py"
     }
   ]
 }
