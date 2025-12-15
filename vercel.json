@@ -1,9 +1,7 @@
 {
   "functions": {
-    "api/*.py": {
-      "maxDuration": 60,
-      "memory": 1024,
-      "runtime": "python@3.9"
+    "api/index.py": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
@@ -12,9 +10,12 @@
       "destination": "/index.html"
     },
     {
-      "source": "/api/(.*)",
+      "source": "/api",
+      "destination": "/api/index.py"
+    },
+    {
+      "source": "/api/",
       "destination": "/api/index.py"
     }
-  ],
-  "installCommand": "pip install -r requirements.txt"
+  ]
 }

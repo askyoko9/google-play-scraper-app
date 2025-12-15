@@ -4,5 +4,10 @@
   "description": "Google Play reviews scraper",
   "engines": {
     "node": ">=18"
-  }
+  },
+  "scripts": {
+    "dev": "python api/index.py"
+  },
+  "dependencies": {},
+  "devDependencies": {}
 }

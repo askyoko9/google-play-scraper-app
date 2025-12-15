@@ -142,86 +142,98 @@ def create_csv_data(data_list):
     print(f"Размер CSV: {len(csv_content)} байт")
     return csv_content
 
-class handler(BaseHTTPRequestHandler):
-    def _send_json_response(self, status_code, data):
-        """Отправляет JSON ответ."""
-        self.send_response(status_code)
-        self.send_header('Content-type', 'application/json; charset=utf-8')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-        self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
-    
-    def _send_csv_response(self, csv_data, filename):
-        """Отправляет CSV файл."""
-        self.send_response(200)
-        self.send_header('Content-type', 'text/csv; charset=utf-8')
-        self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
-        self.end_headers()
-        self.wfile.write(csv_data.encode('utf-8'))
-    
-    def do_POST(self):
-        try:
-            print("=" * 60)
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] НОВЫЙ ЗАПРОС")
-            print(f"Путь: {self.path}")
-            print(f"Метод: {self.command}")
-            print(f"Заголовки: {dict(self.headers)}")
+def handler(request, response):
+    """Основная функция-обработчик для Vercel Serverless."""
+    try:
+        print("=" * 60)
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] НОВЫЙ ЗАПРОС")
+        
+        # Устанавливаем CORS заголовки
+        response.headers.update({
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Accept',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+        })
+        
+        # Обработка preflight запросов OPTIONS
+        if request.method == 'OPTIONS':
+            response.status_code = 200
+            return response
+        
+        # Обработка GET запросов (тестирование)
+        if request.method == 'GET':
+            response.status_code = 200
+            response.headers['Content-Type'] = 'application/json'
+            response_data = {
+                "status": "ok",
+                "service": "Google Play Reviews Scraper",
+                "endpoint": "POST /api/",
+                "parameters": {
+                    "url": "URL приложения из Google Play Store"
+                },
+                "example": {
+                    "url": "https://play.google.com/store/apps/details?id=com.whatsapp"
+                },
+                "filters": "Последние 100 отзывов из РФ за последний год"
+            }
+            response.body = json.dumps(response_data, indent=2)
+            return response
+        
+        # Обработка POST запросов
+        if request.method == 'POST':
+            if not request.body:
+                response.status_code = 400
+                response.headers['Content-Type'] = 'application/json'
+                response.body = json.dumps({"error": "Пустое тело запроса"})
+                return response
             
-            content_length = int(self.headers.get('Content-Length', 0))
-            print(f"Длина контента: {content_length}")
-            
-            if content_length == 0:
-                print("ОШИБКА: Пустое тело запроса")
-                return self._send_json_response(400, {"error": "Пустое тело запроса"})
-            
-            # Читаем данные
-            post_data = self.rfile.read(content_length)
-            data_str = post_data.decode('utf-8')
-            print(f"Полученные данные: {data_str[:200]}...")
-            
-            # Парсим JSON
+            # Читаем и парсим JSON
             try:
-                data = json.loads(data_str)
+                data = json.loads(request.body)
             except json.JSONDecodeError as e:
-                print(f"ОШИБКА JSON: {e}")
-                return self._send_json_response(400, {
+                response.status_code = 400
+                response.headers['Content-Type'] = 'application/json'
+                response.body = json.dumps({
                     "error": "Неверный формат JSON",
                     "details": str(e)
                 })
-            
-            if not isinstance(data, dict):
-                print("ОШИБКА: Данные не являются объектом")
-                return self._send_json_response(400, {"error": "Ожидается JSON объект"})
+                return response
             
             if 'url' not in data:
-                print("ОШИБКА: Нет поля 'url'")
-                return self._send_json_response(400, {"error": "Ожидается поле 'url' в JSON"})
+                response.status_code = 400
+                response.headers['Content-Type'] = 'application/json'
+                response.body = json.dumps({"error": "Ожидается поле 'url' в JSON"})
+                return response
             
             app_url = data['url'].strip()
             print(f"Получен URL: {app_url}")
             
             if not app_url:
-                print("ОШИБКА: Пустой URL")
-                return self._send_json_response(400, {"error": "URL не может быть пустым"})
+                response.status_code = 400
+                response.headers['Content-Type'] = 'application/json'
+                response.body = json.dumps({"error": "URL не может быть пустым"})
+                return response
             
             # Извлекаем App ID
             app_id = get_app_id(app_url)
             if not app_id:
-                print(f"ОШИБКА: Не удалось извлечь App ID из: {app_url}")
-                return self._send_json_response(400, {
+                response.status_code = 400
+                response.headers['Content-Type'] = 'application/json'
+                response.body = json.dumps({
                     "error": "Не удалось извлечь ID приложения",
                     "hint": "Используйте формат: https://play.google.com/store/apps/details?id=com.example.app",
                     "received_url": app_url
                 })
+                return response
             
             print(f"Извлечен App ID: {app_id}")
             
             if not SCRAPER_AVAILABLE:
-                print("ОШИБКА: Библиотека google-play-scraper недоступна")
-                return self._send_json_response(500, {"error": "Сервис временно недоступен"})
+                response.status_code = 500
+                response.headers['Content-Type'] = 'application/json'
+                response.body = json.dumps({"error": "Сервис временно недоступен"})
+                return response
             
             # Выполняем скрейпинг
             print(f"Начинаем сбор отзывов для {app_id}...")
@@ -231,71 +243,52 @@ class handler(BaseHTTPRequestHandler):
             print(f"Сбор занял {elapsed_time:.2f} секунд")
             
             if reviews_data is None:
-                print(f"ОШИБКА: Не удалось собрать отзывы")
-                return self._send_json_response(500, {
+                response.status_code = 500
+                response.headers['Content-Type'] = 'application/json'
+                response.body = json.dumps({
                     "error": "Не удалось собрать отзывы",
                     "app_id": app_id,
                     "hint": "Проверьте правильность App ID и доступность приложения"
                 })
+                return response
             
             print(f"Найдено отзывов: {len(reviews_data)}")
             
             if len(reviews_data) == 0:
-                print("Нет подходящих отзывов по фильтрам")
-                return self._send_json_response(404, {
+                response.status_code = 404
+                response.headers['Content-Type'] = 'application/json'
+                response.body = json.dumps({
                     "error": "Отзывы не найдены",
                     "app_id": app_id,
                     "filters": "РФ, последний год",
                     "hint": "Попробуйте другое приложение или измените фильтры"
                 })
+                return response
             
             # Создаем CSV
             print("Создаем CSV...")
             csv_data = create_csv_data(reviews_data)
             filename = f"reviews_{app_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
             
+            # Отправляем CSV
+            response.status_code = 200
+            response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+            response.body = csv_data
+            
             print(f"Отправляем файл: {filename}")
             print("=" * 60)
             
-            return self._send_csv_response(csv_data, filename)
-            
-        except Exception as e:
-            print(f"НЕОЖИДАННАЯ ОШИБКА: {e}")
-            traceback.print_exc()
-            return self._send_json_response(500, {
-                "error": "Внутренняя ошибка сервера",
-                "details": str(e)
-            })
+            return response
     
-    def do_GET(self):
-        """Проверка работоспособности API."""
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        response = {
-            "status": "ok",
-            "service": "Google Play Reviews Scraper",
-            "endpoint": "POST /api/",
-            "parameters": {
-                "url": "URL приложения из Google Play Store"
-            },
-            "example": {
-                "url": "https://play.google.com/store/apps/details?id=com.whatsapp"
-            },
-            "filters": "Последние 100 отзывов из РФ за последний год"
-        }
-        self.wfile.write(json.dumps(response, indent=2).encode('utf-8'))
-    
-    def do_OPTIONS(self):
-        """Обработка preflight запросов CORS."""
-        self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Accept')
-        self.send_header('Access-Control-Max-Age', '86400')
-        self.end_headers()
-    
-    def log_message(self, format, *args):
-        """Перенаправляем логи в stderr для Vercel."""
-        sys.stderr.write(f"{self.address_string()} - {format % args}\n")
+    except Exception as e:
+        print(f"НЕОЖИДАННАЯ ОШИБКА: {e}")
+        traceback.print_exc()
+        
+        response.status_code = 500
+        response.headers['Content-Type'] = 'application/json'
+        response.body = json.dumps({
+            "error": "Внутренняя ошибка сервера",
+            "details": str(e)
+        })
+        return response
