@@ -55,66 +55,77 @@
             messageDiv.classList.remove('hidden');
         }
 
-        async function startScrape() {
-            const appUrl = urlInput.value.trim();
+async function startScrape() {
+    const appUrl = urlInput.value.trim();
 
-            if (!appUrl) {
-                showMessage("Пожалуйста, введите ссылку на приложение.", true);
-                return;
+    if (!appUrl) {
+        showMessage("Пожалуйста, введите ссылку на приложение.", true);
+        return;
+    }
+
+    // Блокируем кнопку и показываем сообщение о загрузке
+    scrapeButton.disabled = true;
+    scrapeButton.textContent = "Сбор данных... Подождите ⏳";
+    messageDiv.classList.add('hidden');
+
+    try {
+        // Отправляем запрос на нашу бессерверную функцию Vercel (api/index.py)
+        const response = await fetch('/api/index', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url: appUrl })
+        });
+
+        if (response.ok) {
+            // Проверяем тип контента
+            const contentType = response.headers.get('content-type');
+            
+            if (contentType && contentType.includes('text/csv')) {
+                // Если это CSV файл
+                const disposition = response.headers.get('Content-Disposition');
+                const filenameMatch = disposition && disposition.match(/filename="(.+)"/);
+                const filename = filenameMatch ? filenameMatch[1] : 'reviews.csv';
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                showMessage(`✅ Данные успешно собраны и скачаны как ${filename}!`, false);
+            } else {
+                // Если это JSON (ошибка или что-то еще)
+                const errorData = await response.json();
+                showMessage(`❌ Ошибка: ${errorData.error || 'Неизвестная ошибка'}`, true);
             }
 
-            // Блокируем кнопку и показываем сообщение о загрузке
-            scrapeButton.disabled = true;
-            scrapeButton.textContent = "Сбор данных... Подождите ⏳";
-            messageDiv.classList.add('hidden');
-
+        } else {
+            // Пытаемся получить JSON с ошибкой
             try {
-                // Отправляем запрос на нашу бессерверную функцию Vercel (api/index.py)
-                const response = await fetch('/api/index', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ url: appUrl })
-                });
-
-                if (response.ok) {
-                    // Если ответ успешный, Vercel вернет файл
-                    
-                    // Получаем имя файла из заголовка Content-Disposition
-                    const disposition = response.headers.get('Content-Disposition');
-                    const filenameMatch = disposition && disposition.match(/filename="(.+)"/);
-                    const filename = filenameMatch ? filenameMatch[1] : 'reviews.csv';
-
-                    // Создаем Blob для скачивания
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    
-                    // Имитируем нажатие на ссылку для скачивания
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    window.URL.revokeObjectURL(url); // Очистка памяти
-
-                    showMessage(`✅ Данные успешно собраны и скачаны как ${filename}!`, false);
-
-                } else {
-                    // Обработка ошибок (например, 400 или 500)
-                    const errorData = await response.json();
-                    showMessage(`❌ Ошибка (${response.status}): ${errorData.error || 'Неизвестная ошибка сервера.'}`, true);
-                }
-
-            } catch (error) {
-                showMessage(`❌ Критическая ошибка сети/AJAX: ${error.message}`, true);
-            } finally {
-                // Восстанавливаем кнопку
-                scrapeButton.disabled = false;
-                scrapeButton.textContent = "Запустить сбор и скачать CSV";
+                const errorData = await response.json();
+                showMessage(`❌ Ошибка (${response.status}): ${errorData.error || 'Неизвестная ошибка сервера.'}`, true);
+            } catch {
+                // Если не JSON, показываем текст ошибки
+                const errorText = await response.text();
+                showMessage(`❌ Ошибка (${response.status}): ${errorText.substring(0, 100)}...`, true);
             }
         }
+
+    } catch (error) {
+        showMessage(`❌ Критическая ошибка сети/AJAX: ${error.message}`, true);
+    } finally {
+        // Восстанавливаем кнопку
+        scrapeButton.disabled = false;
+        scrapeButton.textContent = "Запустить сбор и скачать CSV";
+    }
+}
     </script>
 </body>
 </html>
