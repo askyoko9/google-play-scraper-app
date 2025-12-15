@@ -1,151 +1,392 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Python Vercel Test</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Play Scraper - Рабочая версия</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
             max-width: 800px;
             margin: 0 auto;
-            padding: 20px;
-            background: #f5f5f5;
         }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        h1 { color: #333; }
-        button {
-            background: #0070f3;
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
             color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin: 5px;
-            font-size: 16px;
         }
-        button:hover { background: #0051bb; }
-        #result {
-            background: #f8f9fa;
+        
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .input-group {
+            margin-bottom: 25px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+        
+        .input-group input {
+            width: 100%;
             padding: 15px;
-            margin-top: 20px;
-            border-radius: 5px;
-            white-space: pre-wrap;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .examples {
+            margin-top: 10px;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .examples code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 4px;
             font-family: monospace;
         }
-        .success { color: green; }
-        .error { color: red; }
+        
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .status-card {
+            background: #f8f9fa;
+            border-left: 5px solid #667eea;
+        }
+        
+        .log-output {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        
+        .success { color: #34c759 !important; }
+        .error { color: #ff3b30 !important; }
+        .warning { color: #ff9500 !important; }
+        .info { color: #007aff !important; }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .result-box {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 2px solid #e9ecef;
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .test-buttons button {
+            padding: 10px 15px;
+            font-size: 14px;
+            width: auto;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 28px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Тест Python функции на Vercel</h1>
-        <p>Проверка базовой работы Python функции без зависимостей.</p>
+        <div class="header">
+            <h1>📱 Google Play Scraper</h1>
+            <p>Сбор отзывов из Google Play Store</p>
+        </div>
         
-        <button onclick="testDirect()">1. Тест напрямую (text/plain)</button>
-        <button onclick="testFetch()">2. Тест через Fetch</button>
-        <button onclick="testCurl()">3. Показать cURL команду</button>
+        <div class="card">
+            <h2>🔗 Введите ссылку на приложение</h2>
+            
+            <div class="input-group">
+                <label for="appUrl">Ссылка на приложение в Google Play:</label>
+                <input type="text" id="appUrl" 
+                       placeholder="https://play.google.com/store/apps/details?id=com.whatsapp"
+                       value="https://play.google.com/store/apps/details?id=com.whatsapp">
+                <div class="examples">
+                    Примеры: 
+                    <code>com.whatsapp</code>, 
+                    <code>com.instagram.android</code>,
+                    <code>com.spotify.music</code>
+                </div>
+            </div>
+            
+            <button id="scrapeBtn" class="btn btn-primary" onclick="scrapeReviews()">
+                <span>🚀 Собрать отзывы и скачать CSV</span>
+            </button>
+            
+            <div class="test-buttons">
+                <button class="btn btn-secondary" onclick="testAPI()">🛠 Тест API</button>
+                <button class="btn btn-secondary" onclick="testExample()">📋 Тестовый пример</button>
+            </div>
+        </div>
         
-        <div id="result"></div>
+        <div class="card status-card">
+            <h2>📊 Статус выполнения</h2>
+            <div id="status">Готов к работе</div>
+            <div id="log" class="log-output"></div>
+        </div>
         
-        <div style="margin-top: 30px; padding: 15px; background: #e3f2fd; border-radius: 5px;">
-            <h3>📋 Проверка вручную:</h3>
-            <p>Откройте в новой вкладке: <a href="/" target="_blank" id="apiUrl"></a></p>
-            <p>Или используйте в терминале:</p>
-            <pre id="curlCommand"></pre>
+        <div class="card">
+            <h2>📝 Информация</h2>
+            <p>Сервис соберет до 100 последних отзывов из российского региона (ru) за последний год.</p>
+            <p>Данные будут сохранены в CSV файл с колонками:</p>
+            <ul style="margin-left: 20px; color: #555; margin-top: 10px;">
+                <li>Имя пользователя</li>
+                <li>Дата публикации</li>
+                <li>Рейтинг (звезды)</li>
+                <li>Заголовок отзыва</li>
+                <li>Текст отзыва</li>
+                <li>Страна</li>
+            </ul>
         </div>
     </div>
 
     <script>
-        // Показываем текущий URL
-        const baseUrl = window.location.origin;
-        document.getElementById('apiUrl').href = baseUrl;
-        document.getElementById('apiUrl').textContent = baseUrl;
+        const scrapeBtn = document.getElementById('scrapeBtn');
+        const appUrlInput = document.getElementById('appUrl');
+        const statusDiv = document.getElementById('status');
+        const logDiv = document.getElementById('log');
         
-        // cURL команда
-        document.getElementById('curlCommand').textContent = `curl -X GET "${baseUrl}"\ncurl -X POST "${baseUrl}" -H "Content-Type: application/json" -d '{"test":"data"}'`;
+        let isProcessing = false;
         
-        function showResult(type, message) {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = `<strong class="${type}">${type.toUpperCase()}:</strong>\n${message}`;
-            resultDiv.scrollIntoView({ behavior: 'smooth' });
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] <span class="${type}">${message}</span>\n`;
+            logDiv.innerHTML = logEntry + logDiv.innerHTML;
+            
+            // Обновляем статус
+            statusDiv.innerHTML = message;
+            statusDiv.className = type;
         }
         
-        // Тест напрямую - ожидаем текст
-        async function testDirect() {
-            showResult('info', 'Отправка GET запроса...');
+        function setLoading(state) {
+            isProcessing = state;
+            scrapeBtn.disabled = state;
             
-            try {
-                const response = await fetch('/', {
-                    method: 'GET'
-                });
-                
-                const text = await response.text();
-                showResult('success', 
-                    `Статус: ${response.status}\n` +
-                    `Тип контента: ${response.headers.get('content-type')}\n\n` +
-                    `Ответ:\n${text}`
-                );
-            } catch (error) {
-                showResult('error', `Ошибка: ${error.message}`);
+            if (state) {
+                scrapeBtn.innerHTML = '<div class="loading"></div> Обработка...';
+                log('Начинаем сбор отзывов...', 'info');
+            } else {
+                scrapeBtn.innerHTML = '🚀 Собрать отзывы и скачать CSV';
             }
         }
         
-        // Тест через fetch с обработкой JSON ошибок
-        async function testFetch() {
-            showResult('info', 'Отправка POST запроса...');
+        async function scrapeReviews() {
+            if (isProcessing) return;
+            
+            const url = appUrlInput.value.trim();
+            if (!url) {
+                log('❌ Пожалуйста, введите ссылку на приложение', 'error');
+                return;
+            }
+            
+            setLoading(true);
             
             try {
+                log(`Отправка запроса для: ${url}`, 'info');
+                
                 const response = await fetch('/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ 
-                        test: 'data',
-                        timestamp: new Date().toISOString()
-                    })
+                    body: JSON.stringify({ url: url })
                 });
                 
-                // Сначала получаем как текст
-                const text = await response.text();
+                const contentType = response.headers.get('content-type') || '';
                 
-                // Пытаемся разобрать как JSON
-                try {
-                    const json = JSON.parse(text);
-                    showResult('success',
-                        `Статус: ${response.status}\n` +
-                        `Тип контента: ${response.headers.get('content-type')}\n\n` +
-                        `JSON ответ:\n${JSON.stringify(json, null, 2)}`
-                    );
-                } catch {
-                    // Если не JSON, показываем текст
-                    showResult('success',
-                        `Статус: ${response.status}\n` +
-                        `Тип контента: ${response.headers.get('content-type')}\n\n` +
-                        `Текстовый ответ:\n${text}`
-                    );
+                if (response.ok) {
+                    if (contentType.includes('text/csv')) {
+                        // Скачиваем CSV файл
+                        const filename = response.headers.get('content-disposition')?.match(/filename="(.+)"/)?.[1] || 'reviews.csv';
+                        const blob = await response.blob();
+                        
+                        const downloadUrl = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = downloadUrl;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(downloadUrl);
+                        
+                        log(`✅ Файл ${filename} успешно скачан!`, 'success');
+                    } else {
+                        // Показываем текстовый ответ
+                        const text = await response.text();
+                        log(`✅ Ответ сервера: ${text.substring(0, 200)}`, 'success');
+                    }
+                } else {
+                    // Обработка ошибок
+                    if (contentType.includes('application/json')) {
+                        const error = await response.json();
+                        log(`❌ Ошибка ${response.status}: ${error.message}`, 'error');
+                    } else {
+                        const text = await response.text();
+                        log(`❌ Ошибка ${response.status}: ${text.substring(0, 200)}`, 'error');
+                    }
                 }
+                
             } catch (error) {
-                showResult('error', `Ошибка сети: ${error.message}`);
+                log(`❌ Ошибка сети: ${error.message}`, 'error');
+                console.error('Ошибка:', error);
+            } finally {
+                setLoading(false);
             }
         }
         
-        function testCurl() {
-            showResult('info', 
-                'cURL команды для тестирования:\n\n' +
-                document.getElementById('curlCommand').textContent
-            );
+        async function testAPI() {
+            log('Тестирование API...', 'info');
+            
+            try {
+                const response = await fetch('/');
+                const data = await response.json();
+                log(`✅ API работает: ${data.service} v${data.version}`, 'success');
+                console.log('API info:', data);
+            } catch (error) {
+                log(`❌ Ошибка теста API: ${error.message}`, 'error');
+            }
         }
         
-        // Авто-тест при загрузке
+        function testExample() {
+            const examples = [
+                'com.whatsapp',
+                'com.instagram.android',
+                'com.spotify.music',
+                'com.facebook.katana',
+                'com.twitter.android'
+            ];
+            
+            const randomExample = examples[Math.floor(Math.random() * examples.length)];
+            appUrlInput.value = `https://play.google.com/store/apps/details?id=${randomExample}`;
+            log(`Загружен пример: ${randomExample}`, 'info');
+        }
+        
+        // Автотест API при загрузке
         window.addEventListener('load', () => {
-            setTimeout(() => {
-                showResult('info', '✅ Готово к тестированию!\nНажмите кнопку "1. Тест напрямую" для проверки.');
-            }, 1000);
+            setTimeout(testAPI, 1000);
+        });
+        
+        // Enter для отправки
+        appUrlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !isProcessing) {
+                scrapeReviews();
+            }
         });
     </script>
 </body>
