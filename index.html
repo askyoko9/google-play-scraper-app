@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Play Scraper (Node.js)</title>
+    <title>Google Play Scraper</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
+            max-width: 600px;
+            margin: 20px auto;
             padding: 20px;
-            background: #f5f5f5;
+            background: #f0f2f5;
         }
         .container {
             background: white;
@@ -21,29 +21,32 @@
         h1 {
             color: #333;
             text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
         }
         input {
             width: 100%;
             padding: 12px;
-            margin: 10px 0 20px;
+            margin-bottom: 20px;
             border: 2px solid #ddd;
             border-radius: 5px;
             font-size: 16px;
-        }
-        input:focus {
-            outline: none;
-            border-color: #0070f3;
+            box-sizing: border-box;
         }
         button {
+            width: 100%;
+            padding: 12px;
             background: #0070f3;
             color: white;
             border: none;
-            padding: 12px 24px;
             border-radius: 5px;
             font-size: 16px;
             cursor: pointer;
-            width: 100%;
-            margin: 5px 0;
+            margin-bottom: 10px;
         }
         button:hover {
             background: #0051bb;
@@ -52,56 +55,69 @@
             background: #ccc;
             cursor: not-allowed;
         }
-        .result {
+        #result {
             margin-top: 20px;
             padding: 15px;
-            background: #f8f9fa;
             border-radius: 5px;
+            background: #f8f9fa;
             white-space: pre-wrap;
             font-family: monospace;
+            min-height: 100px;
         }
-        .success { color: green; }
-        .error { color: red; }
-        .info { color: #666; }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+        .info { color: #17a2b8; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📱 Google Play Scraper</h1>
-        <p>Версия на Node.js (Python временно недоступен)</p>
+        <p class="subtitle">Версия на Node.js</p>
         
         <input type="text" id="urlInput" 
-               placeholder="https://play.google.com/store/apps/details?id=com.whatsapp"
+               placeholder="com.whatsapp или полная ссылка"
                value="com.whatsapp">
         
+        <button onclick="testAPI()" id="testBtn">Тест API</button>
         <button onclick="scrape()" id="scrapeBtn">Собрать отзывы (CSV)</button>
-        <button onclick="testAPI()" style="background: #34a853;">Тест API</button>
         
-        <div id="result" class="result info">
-            Готов к работе...
+        <div id="result" class="info">
+            Нажмите "Тест API" для проверки
         </div>
     </div>
 
     <script>
         const urlInput = document.getElementById('urlInput');
+        const testBtn = document.getElementById('testBtn');
         const scrapeBtn = document.getElementById('scrapeBtn');
         const resultDiv = document.getElementById('result');
         
         async function testAPI() {
+            setButtonsState(true);
             showResult('Тестирование API...', 'info');
             
             try {
                 const response = await fetch('/api/scraper');
-                const data = await response.json();
                 
+                if (!response.ok) {
+                    const text = await response.text();
+                    showResult(`❌ Ошибка ${response.status}: ${text.substring(0, 200)}`, 'error');
+                    return;
+                }
+                
+                const data = await response.json();
                 showResult(
                     `✅ API работает!\n\n` +
                     `Сервис: ${data.service}\n` +
+                    `Версия: ${data.version}\n` +
                     `Сообщение: ${data.message}`,
                     'success'
                 );
+                
             } catch (error) {
-                showResult(`❌ Ошибка: ${error.message}`, 'error');
+                showResult(`❌ Ошибка сети: ${error.message}`, 'error');
+            } finally {
+                setButtonsState(false);
             }
         }
         
@@ -113,8 +129,7 @@
                 return;
             }
             
-            scrapeBtn.disabled = true;
-            scrapeBtn.textContent = 'Обработка...';
+            setButtonsState(true);
             showResult('Отправка запроса...', 'info');
             
             try {
@@ -127,53 +142,75 @@
                 });
                 
                 if (response.ok) {
-                    const contentType = response.headers.get('content-type');
+                    const contentType = response.headers.get('content-type') || '';
                     
-                    if (contentType && contentType.includes('text/csv')) {
+                    if (contentType.includes('text/csv')) {
                         // Скачиваем CSV
                         const blob = await response.blob();
                         const downloadUrl = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = downloadUrl;
-                        a.download = 'reviews.csv';
+                        
+                        // Получаем имя файла из заголовков
+                        const disposition = response.headers.get('content-disposition');
+                        const filenameMatch = disposition && disposition.match(/filename="(.+)"/);
+                        a.download = filenameMatch ? filenameMatch[1] : 'reviews.csv';
+                        
                         document.body.appendChild(a);
                         a.click();
                         a.remove();
                         window.URL.revokeObjectURL(downloadUrl);
                         
-                        showResult('✅ CSV файл скачан!', 'success');
+                        showResult('✅ CSV файл успешно скачан!', 'success');
                     } else {
                         const text = await response.text();
-                        showResult(`✅ Ответ: ${text.substring(0, 200)}`, 'success');
+                        showResult(`✅ Ответ сервера: ${text.substring(0, 200)}`, 'success');
                     }
                 } else {
-                    const error = await response.json();
-                    showResult(`❌ Ошибка ${response.status}: ${error.message}`, 'error');
+                    try {
+                        const error = await response.json();
+                        showResult(`❌ Ошибка ${response.status}: ${error.message}`, 'error');
+                    } catch {
+                        const text = await response.text();
+                        showResult(`❌ Ошибка ${response.status}: ${text.substring(0, 200)}`, 'error');
+                    }
                 }
                 
             } catch (error) {
                 showResult(`❌ Сетевая ошибка: ${error.message}`, 'error');
             } finally {
-                scrapeBtn.disabled = false;
-                scrapeBtn.textContent = 'Собрать отзывы (CSV)';
+                setButtonsState(false);
             }
         }
         
         function showResult(message, type) {
-            resultDiv.innerHTML = message;
-            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+            resultDiv.className = type;
         }
+        
+        function setButtonsState(disabled) {
+            testBtn.disabled = disabled;
+            scrapeBtn.disabled = disabled;
+            
+            if (disabled) {
+                testBtn.innerHTML = '⏳ Обработка...';
+                scrapeBtn.innerHTML = '⏳ Обработка...';
+            } else {
+                testBtn.innerHTML = 'Тест API';
+                scrapeBtn.innerHTML = 'Собрать отзывы (CSV)';
+            }
+        }
+        
+        // Enter для отправки
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !testBtn.disabled) {
+                scrape();
+            }
+        });
         
         // Автотест при загрузке
         window.addEventListener('load', () => {
             setTimeout(testAPI, 1000);
-        });
-        
-        // Enter для отправки
-        urlInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                scrape();
-            }
         });
     </script>
 </body>

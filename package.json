@@ -1,12 +1,14 @@
 {
   "name": "google-play-scraper",
   "version": "1.0.0",
-  "type": "module",
+  "description": "Google Play reviews scraper",
+  "main": "api/scraper.js",
   "scripts": {
-    "dev": "echo 'Node.js project'"
+    "dev": "vercel dev"
   },
-  "dependencies": {
-    "node-fetch": "^3.3.1"
+  "dependencies": {},
+  "devDependencies": {
+    "@vercel/node": "^2.15.4"
   },
   "engines": {
     "node": ">=18"
