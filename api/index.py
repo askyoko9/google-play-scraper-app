@@ -4,10 +4,21 @@ import re
 import pandas as pd
 from datetime import datetime, timedelta
 import io
-from google_play_scraper import Sort, reviews_all
+import sys
+import traceback
+
+# Импортируем google-play-scraper с обработкой ошибок импорта
+try:
+    from google_play_scraper import Sort, reviews_all
+    SCRAPER_AVAILABLE = True
+except ImportError as e:
+    SCRAPER_AVAILABLE = False
+    print(f"Ошибка импорта google-play-scraper: {e}")
 
 def get_app_id(url):
     """Извлекает ID приложения из URL Google Play Store."""
+    if not url:
+        return None
     match = re.search(r'id=([^&]+)', url)
     if match:
         return match.group(1)
@@ -15,6 +26,9 @@ def get_app_id(url):
 
 def scrape_reviews(app_id, count_limit=100, country_code='ru', days_limit=365):
     """Собирает, фильтрует и форматирует отзывы."""
+    if not SCRAPER_AVAILABLE:
+        return None
+    
     date_cutoff = datetime.now() - timedelta(days=days_limit)
     
     try:
@@ -46,79 +60,94 @@ def scrape_reviews(app_id, count_limit=100, country_code='ru', days_limit=365):
 
     except Exception as e:
         print(f"Ошибка при скрейпинге {app_id}: {e}")
+        traceback.print_exc()
         return None
 
 class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        
-        try:
-            data = json.loads(post_data)
-        except json.JSONDecodeError:
-            self.send_response(400)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": "Неверный формат JSON"}).encode())
-            return
-        
-        if not data or 'url' not in data:
-            self.send_response(400)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": "Ожидается поле 'url'"}).encode())
-            return
-        
-        app_url = data['url']
-        app_id = get_app_id(app_url)
-
-        if not app_id:
-            self.send_response(400)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": "Не удалось извлечь ID приложения из ссылки"}).encode())
-            return
-
-        # Выполняем скрейпинг
-        df = scrape_reviews(app_id)
-
-        if df is None:
-            self.send_response(500)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": f"Не удалось получить отзывы для ID: {app_id}"}).encode())
-            return
-        
-        if df.empty:
-            self.send_response(404)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"error": "Отзывы не найдены по заданным фильтрам"}).encode())
-            return
-
-        # Подготовка CSV
+    def _send_json_response(self, status_code, data):
+        """Отправляет JSON ответ."""
+        self.send_response(status_code)
+        self.send_header('Content-type', 'application/json; charset=utf-8')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+    
+    def _send_csv_response(self, df, filename):
+        """Отправляет CSV файл."""
         csv_buffer = io.StringIO()
         df.to_csv(csv_buffer, index=False, encoding='utf-8')
         csv_content = csv_buffer.getvalue()
         
-        filename = f"reviews_{app_id}_{datetime.now().strftime('%Y%m%d')}.csv"
-
-        # Отправляем CSV файл
         self.send_response(200)
         self.send_header('Content-type', 'text/csv; charset=utf-8')
         self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(csv_content.encode('utf-8'))
     
+    def do_POST(self):
+        try:
+            # Логируем начало обработки
+            print("Начало обработки POST запроса")
+            
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                return self._send_json_response(400, {"error": "Пустое тело запроса"})
+            
+            post_data = self.rfile.read(content_length)
+            print(f"Получены данные: {post_data[:100]}...")
+            
+            try:
+                data = json.loads(post_data)
+            except json.JSONDecodeError as e:
+                print(f"Ошибка декодирования JSON: {e}")
+                return self._send_json_response(400, {"error": "Неверный формат JSON"})
+            
+            if not data or 'url' not in data:
+                return self._send_json_response(400, {"error": "Ожидается поле 'url' в JSON"})
+            
+            app_url = data['url'].strip()
+            print(f"URL приложения: {app_url}")
+            
+            app_id = get_app_id(app_url)
+            print(f"Извлеченный App ID: {app_id}")
+
+            if not app_id:
+                return self._send_json_response(400, {"error": "Не удалось извлечь ID приложения. Проверьте формат ссылки"})
+            
+            if not SCRAPER_AVAILABLE:
+                return self._send_json_response(500, {"error": "Библиотека google-play-scraper недоступна"})
+
+            # Выполняем скрейпинг
+            print(f"Начинаем сбор отзывов для {app_id}...")
+            df = scrape_reviews(app_id)
+            print(f"Сбор завершен. Размер DataFrame: {len(df) if df is not None else 'None'}")
+
+            if df is None:
+                return self._send_json_response(500, {"error": f"Ошибка при сборе отзывов для приложения: {app_id}"})
+            
+            if df.empty:
+                return self._send_json_response(404, {"error": "Отзывы не найдены по заданным фильтрам"})
+
+            # Подготовка и отправка CSV
+            filename = f"reviews_{app_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            print(f"Отправка файла: {filename}")
+            
+            return self._send_csv_response(df, filename)
+            
+        except Exception as e:
+            print(f"Неожиданная ошибка в обработчике: {e}")
+            traceback.print_exc()
+            return self._send_json_response(500, {"error": f"Внутренняя ошибка сервера: {str(e)}"})
+    
     def do_OPTIONS(self):
-        # Обработка preflight запросов для CORS
+        """Обработка preflight запросов CORS."""
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
     
-    def end_headers(self):
-        # Добавляем CORS заголовки для всех ответов
-        self.send_header('Access-Control-Allow-Origin', '*')
-        BaseHTTPRequestHandler.end_headers(self)
+    def log_message(self, format, *args):
+        """Отключаем стандартное логирование для чистоты вывода."""
+        pass
