@@ -1,287 +1,152 @@
 <!DOCTYPE html>
-<html lang="ru">
-
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Play Scraper Vercel</title>
+    <title>Python Vercel Test</title>
     <style>
-        /* Простой CSS для удобства */
         body {
-            font-family: sans-serif;
-            margin: 40px;
-            background-color: #f4f4f9;
-            color: #333;
-        }
-
-        .container {
-            max-width: 600px;
+            font-family: Arial, sans-serif;
+            max-width: 800px;
             margin: 0 auto;
-            background: #fff;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
             padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-
-        h1 {
-            color: #4285F4;
-            text-align: center;
-        }
-
-        p {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #666;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-        }
-
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
+        h1 { color: #333; }
         button {
-            background-color: #4285F4;
+            background: #0070f3;
             color: white;
-            padding: 10px 15px;
             border: none;
-            border-radius: 4px;
+            padding: 12px 20px;
+            border-radius: 5px;
             cursor: pointer;
+            margin: 5px;
             font-size: 16px;
-            margin-right: 10px;
-            transition: background-color 0.3s ease;
         }
-
-        button:hover:not(:disabled) {
-            background-color: #357ae8;
-        }
-
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        #message {
+        button:hover { background: #0051bb; }
+        #result {
+            background: #f8f9fa;
+            padding: 15px;
             margin-top: 20px;
-            padding: 10px;
-            border-radius: 4px;
-            text-align: center;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
         }
-
-        .error {
-            background-color: #fdd;
-            color: #d00;
-            border: 1px solid #f99;
-        }
-
-        .success {
-            background-color: #ddf;
-            color: #00d;
-            border: 1px solid #99f;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .loading {
-            color: #666;
-            font-style: italic;
-        }
+        .success { color: green; }
+        .error { color: red; }
     </style>
 </head>
-
 <body>
     <div class="container">
-        <h1>Google Play Отзывы 📈</h1>
-        <p>
-            Введите полную ссылку на приложение из Google Play Store (например,
-            <code>https://play.google.com/store/apps/details?id=com.app.name</code>).
-            Скрипт соберет до 100 последних отзывов из российского региона (ru) за последний год.
-        </p>
-
-        <label for="appUrl">Ссылка на приложение:</label>
-        <input type="text" id="appUrl" placeholder="Вставьте ссылку здесь..." required>
-
-        <button id="scrapeButton" onclick="startScrape()">
-            Запустить сбор и скачать CSV
-        </button>
-
-        <div id="message" class="hidden"></div>
-        <div id="loading" class="hidden loading">⏳ Обработка запроса...</div>
+        <h1>🔧 Тест Python функции на Vercel</h1>
+        <p>Проверка базовой работы Python функции без зависимостей.</p>
+        
+        <button onclick="testDirect()">1. Тест напрямую (text/plain)</button>
+        <button onclick="testFetch()">2. Тест через Fetch</button>
+        <button onclick="testCurl()">3. Показать cURL команду</button>
+        
+        <div id="result"></div>
+        
+        <div style="margin-top: 30px; padding: 15px; background: #e3f2fd; border-radius: 5px;">
+            <h3>📋 Проверка вручную:</h3>
+            <p>Откройте в новой вкладке: <a href="/" target="_blank" id="apiUrl"></a></p>
+            <p>Или используйте в терминале:</p>
+            <pre id="curlCommand"></pre>
+        </div>
     </div>
-<!--  -->
-<div style="margin-top: 20px; border-top: 1px solid #ccc; padding-top: 20px;">
-    <h3>Тестирование API</h3>
-    <button onclick="testGet()" style="background-color: #34A853;">Тест GET</button>
-    <button onclick="testPost()" style="background-color: #FBBC05;">Тест POST</button>
-    <button onclick="testRaw()" style="background-color: #EA4335;">Тест RAW</button>
-</div>
 
-<script>
-async function testGet() {
-    try {
-        const response = await fetch('/api/');
-        const data = await response.json();
-        showMessage(`✅ GET тест: ${data.message}`, false);
-        console.log('GET ответ:', data);
-    } catch (error) {
-        showMessage(`❌ GET ошибка: ${error.message}`, true);
-    }
-}
-
-async function testPost() {
-    try {
-        const response = await fetch('/api/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ test: "data", timestamp: new Date().toISOString() })
-        });
-        const data = await response.json();
-        showMessage(`✅ POST тест: ${data.message}`, false);
-        console.log('POST ответ:', data);
-    } catch (error) {
-        showMessage(`❌ POST ошибка: ${error.message}`, true);
-    }
-}
-
-async function testRaw() {
-    try {
-        const response = await fetch('/api/');
-        const text = await response.text();
-        console.log('RAW ответ:', text.substring(0, 200));
-        showMessage(`📄 RAW ответ (первые 200 символов): ${text.substring(0, 200)}`, false);
-    } catch (error) {
-        showMessage(`❌ RAW ошибка: ${error.message}`, true);
-    }
-}
-</script>
-<!--  -->
     <script>
-        const scrapeButton = document.getElementById('scrapeButton');
-        const urlInput = document.getElementById('appUrl');
-        const messageDiv = document.getElementById('message');
-        const loadingDiv = document.getElementById('loading');
-
-        function showMessage(text, isError) {
-            messageDiv.textContent = text;
-            messageDiv.className = isError ? 'error' : 'success';
-            messageDiv.classList.remove('hidden');
+        // Показываем текущий URL
+        const baseUrl = window.location.origin;
+        document.getElementById('apiUrl').href = baseUrl;
+        document.getElementById('apiUrl').textContent = baseUrl;
+        
+        // cURL команда
+        document.getElementById('curlCommand').textContent = `curl -X GET "${baseUrl}"\ncurl -X POST "${baseUrl}" -H "Content-Type: application/json" -d '{"test":"data"}'`;
+        
+        function showResult(type, message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<strong class="${type}">${type.toUpperCase()}:</strong>\n${message}`;
+            resultDiv.scrollIntoView({ behavior: 'smooth' });
         }
-
-        async function startScrape() {
-            const appUrl = urlInput.value.trim();
-
-            if (!appUrl) {
-                showMessage("Пожалуйста, введите ссылку на приложение.", true);
-                return;
-            }
-
-            // Блокируем кнопку и показываем сообщение о загрузке
-            scrapeButton.disabled = true;
-            scrapeButton.textContent = "Сбор данных...";
-            loadingDiv.classList.remove('hidden');
-            messageDiv.classList.add('hidden');
-
+        
+        // Тест напрямую - ожидаем текст
+        async function testDirect() {
+            showResult('info', 'Отправка GET запроса...');
+            
             try {
-                // Отправляем запрос на нашу бессерверную функцию Vercel
-                const response = await fetch('/api', {
+                const response = await fetch('/', {
+                    method: 'GET'
+                });
+                
+                const text = await response.text();
+                showResult('success', 
+                    `Статус: ${response.status}\n` +
+                    `Тип контента: ${response.headers.get('content-type')}\n\n` +
+                    `Ответ:\n${text}`
+                );
+            } catch (error) {
+                showResult('error', `Ошибка: ${error.message}`);
+            }
+        }
+        
+        // Тест через fetch с обработкой JSON ошибок
+        async function testFetch() {
+            showResult('info', 'Отправка POST запроса...');
+            
+            try {
+                const response = await fetch('/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ url: appUrl })
+                    body: JSON.stringify({ 
+                        test: 'data',
+                        timestamp: new Date().toISOString()
+                    })
                 });
-
-                // Получаем тип контента
-                const contentType = response.headers.get('content-type') || '';
-
-                if (response.ok) {
-                    if (contentType.includes('text/csv')) {
-                        // Если это CSV файл - скачиваем
-                        const disposition = response.headers.get('Content-Disposition');
-                        let filename = 'reviews.csv';
-
-                        if (disposition) {
-                            const matches = disposition.match(/filename="(.+)"/);
-                            if (matches && matches[1]) {
-                                filename = matches[1];
-                            }
-                        }
-
-                        const blob = await response.blob();
-                        const url = window.URL.createObjectURL(blob);
-
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = filename;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        window.URL.revokeObjectURL(url);
-
-                        showMessage(`✅ Данные успешно собраны и скачаны как ${filename}!`, false);
-                    } else if (contentType.includes('application/json')) {
-                        // Если это JSON - возможно информационный ответ
-                        const data = await response.json();
-                        if (data.error) {
-                            showMessage(`❌ Ошибка: ${data.error}`, true);
-                        } else {
-                            showMessage(`✅ ${data.message || 'Успешно!'}`, false);
-                        }
-                    } else {
-                        // Другой тип контента
-                        const text = await response.text();
-                        showMessage(`✅ Получен ответ: ${text.substring(0, 50)}...`, false);
-                    }
-                } else {
-                    // Ошибка HTTP (статус не 200-299)
-                    if (contentType.includes('application/json')) {
-                        try {
-                            const errorData = await response.json();
-                            showMessage(`❌ Ошибка ${response.status}: ${errorData.error || 'Неизвестная ошибка'}`, true);
-                        } catch (e) {
-                            showMessage(`❌ Ошибка ${response.status}: Не удалось разобрать ответ`, true);
-                        }
-                    } else {
-                        try {
-                            const errorText = await response.text();
-                            showMessage(`❌ Ошибка ${response.status}: ${errorText.substring(0, 100)}`, true);
-                        } catch (e) {
-                            showMessage(`❌ Ошибка ${response.status}: ${response.statusText}`, true);
-                        }
-                    }
+                
+                // Сначала получаем как текст
+                const text = await response.text();
+                
+                // Пытаемся разобрать как JSON
+                try {
+                    const json = JSON.parse(text);
+                    showResult('success',
+                        `Статус: ${response.status}\n` +
+                        `Тип контента: ${response.headers.get('content-type')}\n\n` +
+                        `JSON ответ:\n${JSON.stringify(json, null, 2)}`
+                    );
+                } catch {
+                    // Если не JSON, показываем текст
+                    showResult('success',
+                        `Статус: ${response.status}\n` +
+                        `Тип контента: ${response.headers.get('content-type')}\n\n` +
+                        `Текстовый ответ:\n${text}`
+                    );
                 }
-
             } catch (error) {
-                console.error('Ошибка запроса:', error);
-                showMessage(`❌ Критическая ошибка сети: ${error.message}`, true);
-            } finally {
-                // Восстанавливаем кнопку
-                scrapeButton.disabled = false;
-                scrapeButton.textContent = "Запустить сбор и скачать CSV";
-                loadingDiv.classList.add('hidden');
+                showResult('error', `Ошибка сети: ${error.message}`);
             }
         }
-
-        // Добавляем обработчик клавиши Enter
-        urlInput.addEventListener('keypress', function (event) {
-            if (event.key === 'Enter') {
-                startScrape();
-            }
+        
+        function testCurl() {
+            showResult('info', 
+                'cURL команды для тестирования:\n\n' +
+                document.getElementById('curlCommand').textContent
+            );
+        }
+        
+        // Авто-тест при загрузке
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                showResult('info', '✅ Готово к тестированию!\nНажмите кнопку "1. Тест напрямую" для проверки.');
+            }, 1000);
         });
     </script>
 </body>
-
 </html>

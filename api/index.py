@@ -1,17 +1,14 @@
-import json
-
 def handler(event, context):
-    print("=== ФУНКЦИЯ ВЫЗВАНА ===")
+    print("=== Python функция запущена ===")
+    print(f"Метод: {event.get('httpMethod')}")
+    print(f"Путь: {event.get('path')}")
     
+    # Всегда возвращаем простой текстовый ответ
     return {
         'statusCode': 200,
         'headers': {
-            'Content-Type': 'application/json',
+            'Content-Type': 'text/plain; charset=utf-8',
             'Access-Control-Allow-Origin': '*'
         },
-        'body': json.dumps({
-            "success": True,
-            "message": "Hello from Python function!",
-            "method": event.get('httpMethod', 'UNKNOWN')
-        })
+        'body': '✅ Python функция работает!\n\nДля тестирования:\n1. GET /api/\n2. POST /api/ с JSON\n\nPython 3.9 на Vercel'
     }
