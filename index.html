@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Python Test</title>
+</head>
+<body>
+    <h1>Python on Vercel Test</h1>
+    <button onclick="test()">Test API</button>
+    <div id="result"></div>
+    
+    <script>
+        async function test() {
+            try {
+                // Пробуем разные пути
+                const paths = ['/api', '/api/', '/api/index'];
+                const result = document.getElementById('result');
+                
+                for (const path of paths) {
+                    result.innerHTML += `Trying ${path}...<br>`;
+                    
+                    const response = await fetch(path);
+                    const text = await response.text();
+                    
+                    result.innerHTML += `
+                        ${path}: Status ${response.status}<br>
+                        Response: ${text}<br><br>
+                    `;
+                    
+                    if (response.ok) break;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
