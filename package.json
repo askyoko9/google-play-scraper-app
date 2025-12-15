@@ -1,0 +1,13 @@
+{
+  "name": "google-play-scraper",
+  "version": "1.0.0",
+  "description": "Google Play reviews scraper with Python backend",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "echo 'Python backend - use vercel dev'"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}
