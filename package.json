@@ -1,0 +1,14 @@
+{
+  "name": "google-play-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Node.js project'"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
