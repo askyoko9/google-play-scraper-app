@@ -317,7 +317,7 @@
             try {
                 log(`Отправка запроса для: ${url}`, 'info');
 
-                const response = await fetch('/api/', {
+                const response = await fetch('/api', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -371,7 +371,7 @@
             log('Тестирование API...', 'info');
 
             try {
-                const response = await fetch('/api/');
+                const response = await fetch('/api');
                 const data = await response.json();
                 log(`✅ API работает: ${data.service} v${data.version}`, 'success');
                 console.log('API info:', data);
