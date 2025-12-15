@@ -1,14 +1,10 @@
+from http.server import BaseHTTPRequestHandler
+import json
 import re
 import pandas as pd
 from datetime import datetime, timedelta
-from io import StringIO
-from flask import Flask, request, jsonify, send_file
+import io
 from google_play_scraper import Sort, reviews_all
-
-# Создаем экземпляр Flask
-app = Flask(__name__)
-
-# --- Вспомогательные функции для скрейпинга (те же, что и ранее) ---
 
 def get_app_id(url):
     """Извлекает ID приложения из URL Google Play Store."""
@@ -18,26 +14,21 @@ def get_app_id(url):
     return None
 
 def scrape_reviews(app_id, count_limit=100, country_code='ru', days_limit=365):
-    """
-    Собирает, фильтрует и форматирует отзывы.
-    Возвращает pandas DataFrame или None в случае ошибки.
-    """
+    """Собирает, фильтрует и форматирует отзывы."""
     date_cutoff = datetime.now() - timedelta(days=days_limit)
     
     try:
-        # Собираем отзывы
         result = reviews_all(
             app_id,
-            lang='ru',            # Язык
-            country=country_code, # Страна (регион)
-            sort=Sort.NEWEST,     # Сортировка
+            lang='ru',
+            country=country_code,
+            sort=Sort.NEWEST,
         )
         
         data_list = []
         for review in result:
             review_date = review['at'].replace(tzinfo=None)
             
-            # Фильтрация по дате и лимиту
             if review_date >= date_cutoff:
                 if len(data_list) >= count_limit:
                     break 
@@ -54,50 +45,80 @@ def scrape_reviews(app_id, count_limit=100, country_code='ru', days_limit=365):
         return pd.DataFrame(data_list)
 
     except Exception as e:
-        # Вариант B: Запись ошибки и продолжение/возврат None
         print(f"Ошибка при скрейпинге {app_id}: {e}")
         return None
 
-# --- Основной маршрут Flask (Endpoint) ---
+class handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        
+        try:
+            data = json.loads(post_data)
+        except json.JSONDecodeError:
+            self.send_response(400)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Неверный формат JSON"}).encode())
+            return
+        
+        if not data or 'url' not in data:
+            self.send_response(400)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Ожидается поле 'url'"}).encode())
+            return
+        
+        app_url = data['url']
+        app_id = get_app_id(app_url)
 
-@app.route('/', methods=['POST'])
-def handle_scrape():
-    # 1. Получаем данные из POST-запроса (JSON)
-    data = request.get_json(silent=True)
-    if not data or 'url' not in data:
-        return jsonify({"error": "Неверный формат запроса. Ожидается JSON с полем 'url'."}), 400
+        if not app_id:
+            self.send_response(400)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Не удалось извлечь ID приложения из ссылки"}).encode())
+            return
 
-    app_url = data['url']
-    app_id = get_app_id(app_url)
+        # Выполняем скрейпинг
+        df = scrape_reviews(app_id)
 
-    if not app_id:
-        return jsonify({"error": "Не удалось извлечь ID приложения из ссылки. Проверьте формат."}), 400
+        if df is None:
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": f"Не удалось получить отзывы для ID: {app_id}"}).encode())
+            return
+        
+        if df.empty:
+            self.send_response(404)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": "Отзывы не найдены по заданным фильтрам"}).encode())
+            return
 
-    # 2. Выполняем скрейпинг
-    df = scrape_reviews(app_id) # Используем параметры по умолчанию (100 отзывов, ru, 365 дней)
+        # Подготовка CSV
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False, encoding='utf-8')
+        csv_content = csv_buffer.getvalue()
+        
+        filename = f"reviews_{app_id}_{datetime.now().strftime('%Y%m%d')}.csv"
 
-    if df is None:
-        return jsonify({"error": f"Не удалось получить отзывы для ID: {app_id}. Приложение не найдено или возникла ошибка API."}), 500
+        # Отправляем CSV файл
+        self.send_response(200)
+        self.send_header('Content-type', 'text/csv; charset=utf-8')
+        self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+        self.end_headers()
+        self.wfile.write(csv_content.encode('utf-8'))
     
-    if df.empty:
-        return jsonify({"error": "Отзывы найдены, но ни один из них не соответствует фильтрам (РФ, 365 дней). Попробуйте другое приложение."}), 404
-
-    # 3. Подготовка CSV для отправки
-    csv_buffer = StringIO()
-    df.to_csv(csv_buffer, index=False, encoding='utf-8')
-    csv_buffer.seek(0)
+    def do_OPTIONS(self):
+        # Обработка preflight запросов для CORS
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
     
-    filename = f"reviews_{app_id}_{datetime.now().strftime('%Y%m%d')}.csv"
-
-    # 4. Возвращаем CSV как файл
-    return send_file(
-        csv_buffer,
-        mimetype='text/csv',
-        as_attachment=True,
-        download_name=filename,
-        max_age=0 # Отключаем кеширование
-    )
-
-# Этот блок нужен для локального тестирования, Vercel вызывает app.route напрямую
-if __name__ == '__main__':
-    app.run(debug=True)
+    def end_headers(self):
+        # Добавляем CORS заголовки для всех ответов
+        self.send_header('Access-Control-Allow-Origin', '*')
+        BaseHTTPRequestHandler.end_headers(self)
