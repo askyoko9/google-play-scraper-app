@@ -1,51 +1,139 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Google Play Scraper Vercel</title>
     <style>
         /* Простой CSS для удобства */
-        body { font-family: sans-serif; margin: 40px; background-color: #f4f4f9; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        h1 { color: #4285F4; text-align: center; }
-        p { text-align: center; margin-bottom: 20px; color: #666; }
-        label { display: block; margin-bottom: 8px; font-weight: bold; }
-        input[type="text"] { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        button { 
-            background-color: #4285F4; color: white; padding: 10px 15px; border: none; 
-            border-radius: 4px; cursor: pointer; font-size: 16px; margin-right: 10px;
+        body {
+            font-family: sans-serif;
+            margin: 40px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #4285F4;
+            text-align: center;
+        }
+
+        p {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #666;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4285F4;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
             transition: background-color 0.3s ease;
         }
-        button:hover:not(:disabled) { background-color: #357ae8; }
-        button:disabled { background-color: #ccc; cursor: not-allowed; }
-        #message { margin-top: 20px; padding: 10px; border-radius: 4px; text-align: center; }
-        .error { background-color: #fdd; color: #d00; border: 1px solid #f99; }
-        .success { background-color: #ddf; color: #00d; border: 1px solid #99f; }
-        .hidden { display: none; }
-        .loading { color: #666; font-style: italic; }
+
+        button:hover:not(:disabled) {
+            background-color: #357ae8;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .error {
+            background-color: #fdd;
+            color: #d00;
+            border: 1px solid #f99;
+        }
+
+        .success {
+            background-color: #ddf;
+            color: #00d;
+            border: 1px solid #99f;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Google Play Отзывы 📈</h1>
         <p>
-            Введите полную ссылку на приложение из Google Play Store (например, 
+            Введите полную ссылку на приложение из Google Play Store (например,
             <code>https://play.google.com/store/apps/details?id=com.app.name</code>).
             Скрипт соберет до 100 последних отзывов из российского региона (ru) за последний год.
         </p>
-        
+
         <label for="appUrl">Ссылка на приложение:</label>
         <input type="text" id="appUrl" placeholder="Вставьте ссылку здесь..." required>
-        
+
         <button id="scrapeButton" onclick="startScrape()">
             Запустить сбор и скачать CSV
         </button>
-        
+
         <div id="message" class="hidden"></div>
         <div id="loading" class="hidden loading">⏳ Обработка запроса...</div>
     </div>
+    <button id="testButton" onclick="testAPI()" style="background-color: #34A853; margin-top: 10px;">
+        Тест API
+    </button>
 
+    <script>
+        async function testAPI() {
+            try {
+                const response = await fetch('/api/index');
+                const data = await response.json();
+                alert(`Тест API: ${data.status}\n${data.message}`);
+            } catch (error) {
+                alert(`Ошибка теста API: ${error.message}`);
+            }
+        }
+    </script>
     <script>
         const scrapeButton = document.getElementById('scrapeButton');
         const urlInput = document.getElementById('appUrl');
@@ -90,7 +178,7 @@
                         // Если это CSV файл - скачиваем
                         const disposition = response.headers.get('Content-Disposition');
                         let filename = 'reviews.csv';
-                        
+
                         if (disposition) {
                             const matches = disposition.match(/filename="(.+)"/);
                             if (matches && matches[1]) {
@@ -100,7 +188,7 @@
 
                         const blob = await response.blob();
                         const url = window.URL.createObjectURL(blob);
-                        
+
                         const a = document.createElement('a');
                         a.href = url;
                         a.download = filename;
@@ -154,11 +242,12 @@
         }
 
         // Добавляем обработчик клавиши Enter
-        urlInput.addEventListener('keypress', function(event) {
+        urlInput.addEventListener('keypress', function (event) {
             if (event.key === 'Enter') {
                 startScrape();
             }
         });
     </script>
 </body>
+
 </html>

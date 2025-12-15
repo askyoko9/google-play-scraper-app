@@ -1,341 +1,87 @@
 import json
-import re
-from datetime import datetime, timedelta
-import csv
-import io
-import sys
 import traceback
 
-# Импортируем google-play-scraper с обработкой ошибок импорта
-try:
-    from google_play_scraper import Sort, reviews_all
-    SCRAPER_AVAILABLE = True
-except ImportError as e:
-    SCRAPER_AVAILABLE = False
-    print(f"Ошибка импорта google-play-scraper: {e}")
-
-def get_app_id(url):
-    """Извлекает ID приложения из URL Google Play Store."""
-    if not url:
-        return None
-    
-    # Удаляем возможные пробелы
-    url = url.strip()
-    
-    # Пробуем разные форматы URL
-    patterns = [
-        r'id=([a-zA-Z0-9\._]+)',
-        r'/details\?id=([a-zA-Z0-9\._]+)',
-        r'store/apps/details\?id=([a-zA-Z0-9\._]+)',
-        r'play.google.com/store/apps/details\?id=([a-zA-Z0-9\._]+)'
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, url)
-        if match:
-            app_id = match.group(1)
-            print(f"Найден App ID по шаблону {pattern}: {app_id}")
-            return app_id
-    
-    # Если это уже app_id (например, com.whatsapp)
-    if re.match(r'^[a-zA-Z0-9\._]+$', url) and '.' in url:
-        print(f"Предполагаем, что это уже App ID: {url}")
-        return url
-    
-    return None
-
-def scrape_reviews(app_id, count_limit=100, country_code='ru', days_limit=365):
-    """Собирает, фильтрует и форматирует отзывы."""
-    if not SCRAPER_AVAILABLE:
-        print("Библиотека google-play-scraper недоступна")
-        return None
-    
-    date_cutoff = datetime.now() - timedelta(days=days_limit)
-    print(f"Фильтр по дате: от {date_cutoff}")
-    
+def handler(event, context):
+    """Упрощенный обработчик для тестирования"""
     try:
-        print(f"Запрос отзывов для App ID: {app_id}")
-        result = reviews_all(
-            app_id,
-            lang='ru',
-            country=country_code,
-            sort=Sort.NEWEST,
-        )
+        print("=== НАЧАЛО ОБРАБОТКИ ===")
+        print(f"HTTP метод: {event.get('httpMethod')}")
+        print(f"Путь: {event.get('path')}")
+        print(f"Заголовки: {event.get('headers', {})}")
         
-        print(f"Получено отзывов всего: {len(result)}")
+        # Базовые заголовки CORS
+        headers = {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type'
+        }
         
-        data_list = []
-        for i, review in enumerate(result):
-            try:
-                # Преобразуем дату и убираем временную зону
-                if 'at' in review and review['at']:
-                    review_date = review['at'].replace(tzinfo=None)
-                    
-                    if review_date >= date_cutoff:
-                        if len(data_list) >= count_limit:
-                            print(f"Достигнут лимит в {count_limit} отзывов")
-                            break
-                        
-                        data_list.append({
-                            'Имя_пользователя': review.get('userName', 'N/A'),
-                            'Дата_публикации': review['at'].strftime('%Y-%m-%d %H:%M:%S'),
-                            'Рейтинг_звезды': review.get('score', 0),
-                            'Заголовок_отзыва': review.get('title', '').strip(),
-                            'Текст_отзыва': review.get('content', '').strip(),
-                            'Страна_отзыва': country_code,
-                        })
-                        
-                        if i % 20 == 0:
-                            print(f"Обработано {i+1} отзывов, отфильтровано {len(data_list)}")
-                else:
-                    print(f"Отзыв {i} без даты, пропускаем")
-                    
-            except Exception as e:
-                print(f"Ошибка обработки отзыва {i}: {e}")
-                continue
-        
-        print(f"Итого отфильтровано отзывов: {len(data_list)}")
-        return data_list
-
-    except Exception as e:
-        print(f"Критическая ошибка при скрейпинге {app_id}: {e}")
-        traceback.print_exc()
-        return None
-
-def create_csv_data(data_list):
-    """Создает CSV данные из списка словарей."""
-    if not data_list:
-        return ""
-    
-    output = io.StringIO()
-    
-    # Определяем заголовки
-    fieldnames = ['Имя_пользователя', 'Дата_публикации', 'Рейтинг_звезды', 
-                  'Заголовок_отзыва', 'Текст_отзыва', 'Страна_отзыва']
-    
-    writer = csv.DictWriter(output, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
-    writer.writeheader()
-    
-    for i, row in enumerate(data_list):
-        try:
-            # Очищаем данные от специальных символов
-            cleaned_row = {}
-            for key, value in row.items():
-                if isinstance(value, str):
-                    # Удаляем не-ASCII символы, которые могут сломать CSV
-                    cleaned_value = value.encode('utf-8', 'ignore').decode('utf-8')
-                    cleaned_row[key] = cleaned_value
-                else:
-                    cleaned_row[key] = value
-            
-            writer.writerow(cleaned_row)
-            
-            if i % 20 == 0:
-                print(f"Записано в CSV: {i+1} строк")
-                
-        except Exception as e:
-            print(f"Ошибка записи строки {i} в CSV: {e}")
-            continue
-    
-    csv_content = output.getvalue()
-    print(f"Размер CSV: {len(csv_content)} байт")
-    return csv_content
-
-def handler(request):
-    """Основная функция-обработчик для Vercel Serverless."""
-    try:
-        print("=" * 60)
-        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] НОВЫЙ ЗАПРОС")
-        print(f"Метод: {request.method}")
-        print(f"Путь: {request.path}")
-        
-        # Обработка preflight запросов OPTIONS
-        if request.method == 'OPTIONS':
+        # Обработка OPTIONS (preflight CORS)
+        if event.get('httpMethod') == 'OPTIONS':
             return {
                 'statusCode': 200,
-                'headers': {
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type',
-                }
+                'headers': headers,
+                'body': ''
             }
         
-        # Обработка GET запросов (тестирование)
-        if request.method == 'GET':
-            response_data = {
+        # Обработка GET - тестовый ответ
+        if event.get('httpMethod') == 'GET':
+            response = {
                 "status": "ok",
                 "service": "Google Play Reviews Scraper",
-                "endpoint": "POST /api/",
-                "parameters": {
-                    "url": "URL приложения из Google Play Store"
-                },
-                "example": {
-                    "url": "https://play.google.com/store/apps/details?id=com.whatsapp"
-                },
-                "filters": "Последние 100 отзывов из РФ за последний год"
+                "message": "API работает корректно",
+                "usage": "Отправьте POST запрос с JSON {'url': 'ваша_ссылка'}"
             }
-            
             return {
                 'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Access-Control-Allow-Origin': '*',
-                },
-                'body': json.dumps(response_data, ensure_ascii=False)
+                'headers': headers,
+                'body': json.dumps(response, ensure_ascii=False)
             }
         
-        # Обработка POST запросов
-        if request.method == 'POST':
-            if not request.body:
-                return {
-                    'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                    'body': json.dumps({"error": "Пустое тело запроса"}, ensure_ascii=False)
-                }
+        # Обработка POST - минимальная логика
+        if event.get('httpMethod') == 'POST':
+            body = event.get('body', '{}')
             
-            # Читаем и парсим JSON
             try:
-                data = json.loads(request.body)
-            except json.JSONDecodeError as e:
+                data = json.loads(body)
+            except:
                 return {
                     'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                    'body': json.dumps({
-                        "error": "Неверный формат JSON",
-                        "details": str(e)
-                    }, ensure_ascii=False)
+                    'headers': headers,
+                    'body': json.dumps({"error": "Неверный JSON"}, ensure_ascii=False)
                 }
             
-            if 'url' not in data:
-                return {
-                    'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                    'body': json.dumps({"error": "Ожидается поле 'url' в JSON"}, ensure_ascii=False)
-                }
+            # Простой тестовый ответ
+            response = {
+                "status": "success",
+                "message": "Запрос получен",
+                "received_url": data.get('url', 'не указан'),
+                "next_step": "В реальной версии здесь будет сбор отзывов"
+            }
             
-            app_url = data['url'].strip()
-            print(f"Получен URL: {app_url}")
-            
-            if not app_url:
-                return {
-                    'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                    'body': json.dumps({"error": "URL не может быть пустым"}, ensure_ascii=False)
-                }
-            
-            # Извлекаем App ID
-            app_id = get_app_id(app_url)
-            if not app_id:
-                return {
-                    'statusCode': 400,
-                    'headers': {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                    'body': json.dumps({
-                        "error": "Не удалось извлечь ID приложения",
-                        "hint": "Используйте формат: https://play.google.com/store/apps/details?id=com.example.app",
-                        "received_url": app_url
-                    }, ensure_ascii=False)
-                }
-            
-            print(f"Извлечен App ID: {app_id}")
-            
-            if not SCRAPER_AVAILABLE:
-                return {
-                    'statusCode': 500,
-                    'headers': {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                    'body': json.dumps({"error": "Сервис временно недоступен"}, ensure_ascii=False)
-                }
-            
-            # Выполняем скрейпинг
-            print(f"Начинаем сбор отзывов для {app_id}...")
-            start_time = datetime.now()
-            reviews_data = scrape_reviews(app_id)
-            elapsed_time = (datetime.now() - start_time).total_seconds()
-            print(f"Сбор занял {elapsed_time:.2f} секунд")
-            
-            if reviews_data is None:
-                return {
-                    'statusCode': 500,
-                    'headers': {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                    'body': json.dumps({
-                        "error": "Не удалось собрать отзывы",
-                        "app_id": app_id,
-                        "hint": "Проверьте правильность App ID и доступность приложения"
-                    }, ensure_ascii=False)
-                }
-            
-            print(f"Найдено отзывов: {len(reviews_data)}")
-            
-            if len(reviews_data) == 0:
-                return {
-                    'statusCode': 404,
-                    'headers': {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                    'body': json.dumps({
-                        "error": "Отзывы не найдены",
-                        "app_id": app_id,
-                        "filters": "РФ, последний год",
-                        "hint": "Попробуйте другое приложение или измените фильтры"
-                    }, ensure_ascii=False)
-                }
-            
-            # Создаем CSV
-            print("Создаем CSV...")
-            csv_data = create_csv_data(reviews_data)
-            filename = f"reviews_{app_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            
-            # Отправляем CSV
             return {
                 'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'text/csv; charset=utf-8',
-                    'Content-Disposition': f'attachment; filename="{filename}"',
-                    'Access-Control-Allow-Origin': '*',
-                },
-                'body': csv_data
+                'headers': headers,
+                'body': json.dumps(response, ensure_ascii=False)
             }
         
         # Для других методов
         return {
             'statusCode': 405,
-            'headers': {
-                'Content-Type': 'application/json; charset=utf-8',
-                'Access-Control-Allow-Origin': '*',
-            },
-            'body': json.dumps({"error": "Метод не разрешен"}, ensure_ascii=False)
+            'headers': headers,
+            'body': json.dumps({"error": "Метод не поддерживается"}, ensure_ascii=False)
         }
-    
+        
     except Exception as e:
-        print(f"НЕОЖИДАННАЯ ОШИБКА: {e}")
+        print(f"!!! КРИТИЧЕСКАЯ ОШИБКА: {str(e)}")
         traceback.print_exc()
         
         return {
             'statusCode': 500,
             'headers': {
-                'Content-Type': 'application/json; charset=utf-8',
-                'Access-Control-Allow-Origin': '*',
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
             },
             'body': json.dumps({
                 "error": "Внутренняя ошибка сервера",
