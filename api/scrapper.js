@@ -3,12 +3,12 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
+
     // Обработка OPTIONS запроса (preflight CORS)
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
-    
+
     // GET запрос
     if (req.method === 'GET') {
         return res.status(200).json({
@@ -21,50 +21,42 @@ export default async function handler(req, res) {
             }
         });
     }
-    
+
     // POST запрос
     if (req.method === 'POST') {
         try {
             // Парсим тело запроса
-            let body = '';
-            await new Promise((resolve) => {
-                req.on('data', chunk => {
-                    body += chunk.toString();
-                });
-                req.on('end', resolve);
-            });
-            
-            const data = JSON.parse(body || '{}');
-            
+            const data = req.body || {};
+
             if (!data.url) {
                 return res.status(400).json({
                     error: true,
                     message: 'Требуется поле "url" в теле запроса'
                 });
             }
-            
+
             // Извлекаем appId
             const appId = extractAppId(data.url.trim());
-            
+
             if (!appId) {
                 return res.status(400).json({
                     error: true,
                     message: 'Не удалось извлечь ID приложения. Примеры: com.whatsapp или https://play.google.com/store/apps/details?id=com.whatsapp'
                 });
             }
-            
+
             // Генерируем демо-данные
             const reviews = generateDemoData(appId);
-            
+
             // Создаем CSV
             const csv = generateCSV(reviews, appId);
-            
+
             // Возвращаем CSV файл
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', `attachment; filename="reviews_${appId}.csv"`);
-            
+
             return res.status(200).send(csv);
-            
+
         } catch (error) {
             console.error('Error:', error);
             return res.status(500).json({
@@ -73,7 +65,7 @@ export default async function handler(req, res) {
             });
         }
     }
-    
+
     // Метод не поддерживается
     return res.status(405).json({
         error: true,
@@ -83,35 +75,35 @@ export default async function handler(req, res) {
 
 function extractAppId(url) {
     if (!url) return null;
-    
+
     const cleanUrl = url.trim();
-    
+
     // Паттерны для извлечения appId
     const patterns = [
         /id=([a-zA-Z0-9\._]+)/i,
         /\/details\?id=([a-zA-Z0-9\._]+)/i,
         /store\/apps\/details\?id=([a-zA-Z0-9\._]+)/i
     ];
-    
+
     for (const pattern of patterns) {
         const match = cleanUrl.match(pattern);
         if (match && match[1]) {
             return match[1];
         }
     }
-    
+
     // Если это уже appId
     if (/^[a-zA-Z0-9\._]+$/.test(cleanUrl) && cleanUrl.includes('.')) {
         return cleanUrl;
     }
-    
+
     return null;
 }
 
 function generateDemoData(appId) {
     const now = new Date();
     const reviews = [];
-    
+
     const templates = [
         {
             userName: 'Александр Петров',
@@ -174,11 +166,11 @@ function generateDemoData(appId) {
             content: 'В целом устраивает, но есть небольшие баги.'
         }
     ];
-    
+
     templates.forEach((template, index) => {
         const date = new Date(now);
         date.setDate(date.getDate() - index);
-        
+
         reviews.push({
             ...template,
             at: date.toISOString(),
@@ -186,23 +178,23 @@ function generateDemoData(appId) {
             appId: appId
         });
     });
-    
+
     return reviews;
 }
 
 function generateCSV(reviews, appId) {
     const headers = ['App ID', 'Имя пользователя', 'Рейтинг', 'Дата', 'Заголовок', 'Текст отзыва', 'Страна'];
-    
+
     const rows = reviews.map(review => {
         const date = new Date(review.at);
         const dateStr = date.toLocaleDateString('ru-RU') + ' ' + date.toLocaleTimeString('ru-RU');
-        
+
         // Экранирование для CSV
         const escape = (str) => {
             if (str === null || str === undefined) return '';
             return `"${String(str).replace(/"/g, '""')}"`;
         };
-        
+
         return [
             appId,
             escape(review.userName),
@@ -213,7 +205,7 @@ function generateCSV(reviews, appId) {
             review.country
         ];
     });
-    
+
     return [headers, ...rows]
         .map(row => row.join(','))
         .join('\n');
