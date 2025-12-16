@@ -23,48 +23,34 @@ export default async function handler(req, res) {
     }
 
     // POST запрос
+
     if (req.method === 'POST') {
         try {
-            // Парсим тело запроса
-            const data = req.body || {};
-
+            // Используем req.body, как договорились
+            const data = req.body || {}; 
+            
             if (!data.url) {
                 return res.status(400).json({
                     error: true,
-                    message: 'Требуется поле "url" в теле запроса'
+                    message: 'Требуется поле "url" в теле запроса (тест POST-запроса)'
                 });
             }
-
-            // Извлекаем appId
-            const appId = extractAppId(data.url.trim());
-
-            if (!appId) {
-                return res.status(400).json({
-                    error: true,
-                    message: 'Не удалось извлечь ID приложения. Примеры: com.whatsapp или https://play.google.com/store/apps/details?id=com.whatsapp'
-                });
-            }
-
-            // Генерируем демо-данные
-            const reviews = generateDemoData(appId);
-
-            // Создаем CSV
-            const csv = generateCSV(reviews, appId);
-
-            // Возвращаем CSV файл
-            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-            res.setHeader('Content-Disposition', `attachment; filename="reviews_${appId}.csv"`);
-            // Явно создаем буфер с кодировкой UTF-8
-            const csvBuffer = Buffer.from(csv, 'utf8');
-            res.setHeader('Content-Length', csvBuffer.length); // Устанавливаем длину буфера
-
-            return res.status(200).send(csvBuffer); // <--- ОТПРАВЛЯЕМ БУФЕР
-
+            
+            const appId = data.url.trim(); // Просто используем url как appId для теста
+            
+            // ВРЕМЕННЫЙ УПРОЩЕННЫЙ ОТВЕТ
+            return res.status(200).json({
+                status: 'success',
+                appId: appId,
+                message: 'POST-запрос успешно обработан, CSV-логика ВРЕМЕННО ОТКЛЮЧЕНА.',
+                testResult: 'API работает, проблема в логике генерации CSV/Buffer.'
+            });
+            
         } catch (error) {
             console.error('Error:', error);
             return res.status(500).json({
                 error: true,
-                message: `Внутренняя ошибка: ${error.message}`
+                message: `Внутренняя ошибка в упрощенном POST-блоке: ${error.message}`
             });
         }
     }
