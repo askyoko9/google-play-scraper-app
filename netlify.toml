@@ -1,0 +1,10 @@
+[build]
+  # Папка, которую Netlify должен обслуживать как статический фронтенд.
+  # Так как ваш index.html находится в public/, мы указываем эту папку.
+  publish = "public"
+
+[functions]
+  # Папка, где Netlify будет искать Serverless Functions.
+  directory = "netlify/functions"
+  # Настройка тайм-аута функции (по желанию, 10 секунд по умолчанию, 30 секунд - хороший запас)
+  timeout = 30

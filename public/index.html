@@ -204,8 +204,7 @@
             try {
                 // Пробуем разные пути API
                 // *** ИЗМЕНИТЬ ЗДЕСЬ ***
-                const apiPaths = ['/scrapper', '/api/scraper', '/api', '/api/'];
-
+                const apiPaths = ['/.netlify/functions/scrapper', '/scrapper', '/api/scrapper'];
                 for (const path of apiPaths) {
                     try {
                         const response = await fetch(path);
@@ -252,7 +251,7 @@
             try {
                 // Пробуем разные пути
                 // *** ИЗМЕНИТЬ ЗДЕСЬ ***
-                const apiPaths = ['/scrapper', '/api/scraper', '/api', '/api/'];
+                const apiPaths = ['/.netlify/functions/scrapper', '/scrapper', '/api/scrapper'];
                 let success = false;
 
                 for (const path of apiPaths) {
