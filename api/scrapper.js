@@ -54,8 +54,11 @@ export default async function handler(req, res) {
             // Возвращаем CSV файл
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', `attachment; filename="reviews_${appId}.csv"`);
+            // Явно создаем буфер с кодировкой UTF-8
+            const csvBuffer = Buffer.from(csv, 'utf8');
+            res.setHeader('Content-Length', csvBuffer.length); // Устанавливаем длину буфера
 
-            return res.status(200).send(csv);
+            return res.status(200).send(csvBuffer); // <--- ОТПРАВЛЯЕМ БУФЕР
 
         } catch (error) {
             console.error('Error:', error);
@@ -74,7 +77,7 @@ export default async function handler(req, res) {
 }
 
 function extractAppId(url) {
-    if (!url) return null;
+    if (typeof url !== 'string' || !url) return null;
 
     const cleanUrl = url.trim();
 
